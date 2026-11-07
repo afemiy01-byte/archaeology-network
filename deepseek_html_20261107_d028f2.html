@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>考古系络图 · 终极智能版</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: system-ui, 'Segoe UI', sans-serif; }
+        body { display: flex; height: 100vh; background: #f5f3f0; overflow: hidden; }
+        .sidebar {
+            width: 320px; background: #efeae3; border-right: 2px solid #c9b9a8;
+            display: flex; flex-direction: column; padding: 18px 14px; gap: 10px;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05); z-index: 10; overflow-y: auto;
+        }
+        .sidebar h2 { font-size: 1.15rem; font-weight: 600; color: #3e2f1f; padding-bottom: 6px; border-bottom: 2px solid #c9b9a8; display: flex; align-items: center; gap: 6px; }
+        .tool-group { display: flex; flex-direction: column; gap: 6px; }
+        .tool-group p { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #7a6a5a; margin-top: 4px; font-weight: 600; }
+        .btn {
+            padding: 9px 12px; border: 2px solid #b7a48f; background: #fffcf7; border-radius: 10px;
+            font-size: 0.9rem; font-weight: 500; color: #3e2f1f; display: flex; align-items: center; gap: 8px;
+            cursor: pointer; transition: all 0.1s; box-shadow: 0 2px 0 #b7a48f;
+        }
+        .btn:hover { background: #f3ede5; transform: translateY(-1px); box-shadow: 0 3px 0 #b7a48f; }
+        .btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #b7a48f; }
+        .btn.active { background: #d9c7b0; border-color: #9b8a78; box-shadow: 0 1px 0 #9b8a78; transform: translateY(1px); }
+        .btn .icon { font-size: 1.1rem; line-height: 1; }
+        .btn-small { padding: 7px 10px; font-size: 0.8rem; border-radius: 8px; }
+        .btn-danger { border-color: #c97b7b; background: #fff0f0; color: #8b3a3a; box-shadow: 0 2px 0 #c97b7b; }
+        .btn-danger:hover { background: #ffe0e0; box-shadow: 0 3px 0 #c97b7b; }
+        .separator { height: 2px; background: #d9cdbd; margin: 6px 0; }
+        .info-badge { margin-top: auto; font-size: 0.7rem; color: #7a6a5a; background: #e6ddd2; padding: 8px 10px; border-radius: 8px; line-height: 1.4; border: 1px solid #cbb9a6; }
+        .copyright { font-size: 0.75rem; color: #a09383; text-align: center; margin-top: 10px; font-weight: 500; letter-spacing: 0.5px; }
+        
+        .canvas-container { flex: 1; position: relative; background: #f5f3f0; overflow: auto; display: flex; }
+        canvas { display: block; background: #fefcf9; box-shadow: inset 0 0 10px rgba(0,0,0,0.05); }
+        .status-bar {
+            position: fixed; bottom: 16px; right: 20px; background: #3e2f1fdd; color: #f0e8de;
+            padding: 6px 16px; border-radius: 30px; font-size: 0.8rem; backdrop-filter: blur(4px);
+            pointer-events: none; letter-spacing: 0.3px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); z-index: 100;
+        }
+        
+        .input-group { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+        .input-group input, .input-group textarea {
+            padding: 8px; border: 2px solid #b7a48f; border-radius: 8px; font-size: 0.85rem;
+            background: #fffcf7; color: #3e2f1f; outline: none; transition: border-color 0.2s;
+            font-family: monospace;
+        }
+        .input-group textarea { resize: vertical; min-height: 80px; }
+        .input-group input:focus, .input-group textarea:focus { border-color: #b85e2b; }
+        .input-group input:disabled { background: #e8e0d6; color: #9b8a78; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2><i>🏺</i> 考古系络图</h2>
+        
+        <div class="input-group">
+            <p>文本一键生成</p>
+            <textarea id="bulkInput" placeholder="示例：&#10;1-2-3-4-5-6&#10;2-4&#10;2-5&#10;2-H1-3&#10;2-H2-3&#10;2-H3-4"></textarea>
+            <button class="btn btn-small" id="generateBtn" style="justify-content:center;">✨ 智能解析并生成</button>
+        </div>
+
+        <div class="separator"></div>
+        <div class="tool-group">
+            <p>手动添加</p>
+            <button class="btn" id="addRectBtn"><span class="icon">▭</span> 矩形</button>
+            <button class="btn" id="addTriBtn"><span class="icon">△</span> 三角形</button>
+        </div>
+
+        <div class="input-group">
+            <p>编辑文字</p>
+            <input type="text" id="labelInput" placeholder="选中形状后输入..." disabled>
+        </div>
+
+        <div class="separator"></div>
+        <div class="tool-group">
+            <p>层位关系</p>
+            <button class="btn" id="addArrowBtn"><span class="icon">→</span> 叠压/打破</button>
+            <button class="btn" id="addEqualBtn"><span class="icon">＝</span> 同时/相等</button>
+        </div>
+        
+        <div class="separator"></div>
+        <div class="tool-group">
+            <p>操作与导出</p>
+            <button class="btn btn-small" id="deleteShapeBtn"><span class="icon">🗑️</span> 删除形状</button>
+            <button class="btn btn-small btn-danger" id="deleteConnectionBtn"><span class="icon">🔗</span> 删除连线</button>
+            <button class="btn btn-small" id="autoLayoutBtn"><span class="icon">⊞</span> 智能分层排版</button>
+            <button class="btn btn-small" id="exportBtn" style="margin-top:8px; background:#e2f0d9; border-color:#7a9e6b; box-shadow:0 2px 0 #7a9e6b; color:#2e4d22;"><span class="icon">📥</span> 导出黑白PNG</button>
+            <a id="downloadFallback" style="display:none; text-align:center; font-size:0.75rem; color:#7a9e6b; margin-top:4px; text-decoration:underline;">⚠️ 点击此处保存图片</a>
+            <button class="btn btn-small" id="clearCanvasBtn" style="margin-top:4px;"><span class="icon">🧹</span> 清空画布</button>
+        </div>
+
+        <div class="info-badge">
+            ⚡ 单击选中，拖拽移动<br>
+            → 箭头表示上层(晚)叠压下层(早)<br>
+            ＝ 等号表示同时/相等关系<br>
+            📥 导出的PNG为纯白底黑线
+        </div>
+
+        <!-- 新增：版权信息 -->
+        <div class="copyright">© AFEMIY 2026</div>
+    </div>
+
+    <div class="canvas-container" id="canvasContainer">
+        <canvas id="mainCanvas"></canvas>
+        <div class="status-bar" id="statusBar">就绪</div>
+    </div>
+
+    <script>
+        (function() {
+            const canvasContainer = document.getElementById('canvasContainer');
+            const canvas = document.getElementById('mainCanvas');
+            const ctx = canvas.getContext('2d');
+            const statusBar = document.getElementById('statusBar');
+            const labelInput = document.getElementById('labelInput');
+            const bulkInput = document.getElementById('bulkInput');
+
+            let shapes = [];
+            let connections = [];
+            let selectedShapeId = null;
+            let activeTool = 'select';
+            let pendingConnectFromId = null;
+            let canvasWidth = 1200, canvasHeight = 800; 
+            const GRID_SIZE = 40;
+            const DEFAULT_W = 70, DEFAULT_H = 50;
+            let isDragging = false;
+            let dragOffsetX = 0, dragOffsetY = 0;
+
+            function generateId() { return Date.now() + '-' + Math.random().toString(36).substr(2, 9); }
+            function getShapeById(id) { return shapes.find(s => s.id === id) || null; }
+            function setStatus(t) { statusBar.textContent = t || '就绪'; }
+            
+            function syncInput() {
+                if (selectedShapeId) {
+                    const shape = getShapeById(selectedShapeId);
+                    if (shape) {
+                        labelInput.disabled = false;
+                        labelInput.value = shape.label || '';
+                        return;
+                    }
+                }
+                labelInput.disabled = true;
+                labelInput.value = '';
+            }
+
+            function resetToolHighlight() {
+                document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+                if (activeTool === 'rect') document.getElementById('addRectBtn').classList.add('active');
+                if (activeTool === 'tri') document.getElementById('addTriBtn').classList.add('active');
+                if (activeTool === 'arrow') document.getElementById('addArrowBtn').classList.add('active');
+                if (activeTool === 'equal') document.getElementById('addEqualBtn').classList.add('active');
+                if (activeTool === 'deleteConn') document.getElementById('deleteConnectionBtn').classList.add('active');
+            }
+
+            // 动态扩展画幅：增加容差，避免拖动时频繁抖动
+            function updateCanvasSize() {
+                let maxX = 800, maxY = 600;
+                shapes.forEach(s => {
+                    if (s.x + s.w + 200 > maxX) maxX = s.x + s.w + 200;
+                    if (s.y + s.h + 200 > maxY) maxY = s.y + s.h + 200;
+                });
+                
+                const targetWidth = Math.max(maxX, canvasContainer.clientWidth);
+                const targetHeight = Math.max(maxY, canvasContainer.clientHeight);
+
+                // 只有当需要缩小时超过了 300px 的阈值，或者需要放大时，才重新调整画布，降低灵敏度
+                if (targetWidth > canvasWidth || targetHeight > canvasHeight ||
+                    (canvasWidth - targetWidth > 300) || (canvasHeight - targetHeight > 300)) {
+                    
+                    canvasWidth = targetWidth;
+                    canvasHeight = targetHeight;
+                    if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
+                        canvas.width = canvasWidth;
+                        canvas.height = canvasHeight;
+                    }
+                }
+                draw();
+            }
+
+            // ================= 绘图核心 =================
+            function render(context, isExport = false) {
+                const colors = isExport ? {
+                    bg: '#ffffff', grid: null, shapeFill: '#ffffff', 
+                    shapeStroke: '#000000', text: '#000000',
+                    arrow: '#000000', equal: '#000000', select: 'transparent'
+                } : {
+                    bg: '#fefcf9', grid: ['#d6cbbd', '#e8e0d6'], shapeFill: '#fffcf7', 
+                    shapeStroke: '#5e4d3c', text: '#2b1f14',
+                    arrow: '#b85e2b', equal: '#3e7e5c', select: '#b85e2b'
+                };
+
+                context.fillStyle = colors.bg;
+                context.fillRect(0, 0, canvasWidth, canvasHeight);
+
+                if (!isExport && colors.grid) {
+                    context.save();
+                    for (let x = 0; x <= canvasWidth; x += GRID_SIZE) {
+                        context.beginPath(); context.moveTo(x, 0); context.lineTo(x, canvasHeight);
+                        context.strokeStyle = (x % (GRID_SIZE*2)===0) ? colors.grid[0] : colors.grid[1];
+                        context.lineWidth = 0.8; context.stroke();
+                    }
+                    for (let y = 0; y <= canvasHeight; y += GRID_SIZE) {
+                        context.beginPath(); context.moveTo(0, y); context.lineTo(canvasWidth, y);
+                        context.strokeStyle = (y % (GRID_SIZE*2)===0) ? colors.grid[0] : colors.grid[1];
+                        context.lineWidth = 0.8; context.stroke();
+                    }
+                    context.restore();
+                }
+
+                // ================= 画连线 =================
+                const drawnLines = []; 
+
+                // 等号
+                connections.filter(c => c.type === 'equal').forEach(conn => {
+                    const from = getShapeById(conn.fromId), to = getShapeById(conn.toId);
+                    if (!from || !to) return;
+                    
+                    const fromIsLeft = from.x < to.x;
+                    const startX = fromIsLeft ? (from.x + from.w) : from.x;
+                    const startY = from.y + from.h / 2;
+                    const toIsLeft = from.x < to.x;
+                    const endX = toIsLeft ? to.x : (to.x + to.w);
+                    const endY = to.y + to.h / 2;
+
+                    const midX = (startX + endX) / 2;
+                    const offset = 6;
+                    
+                    context.save();
+                    context.strokeStyle = colors.equal; context.lineWidth = 2; context.lineJoin = 'miter';
+                    
+                    context.beginPath();
+                    context.moveTo(startX, startY - offset); context.lineTo(midX, startY - offset);
+                    context.lineTo(midX, endY - offset); context.lineTo(endX, endY - offset);
+                    context.stroke();
+
+                    context.beginPath();
+                    context.moveTo(startX, startY + offset); context.lineTo(midX, startY + offset);
+                    context.lineTo(midX, endY + offset); context.lineTo(endX, endY + offset);
+                    context.stroke();
+                    context.restore();
+                });
+
+                // 箭头
+                const arrows = connections.filter(c => c.type === 'arrow');
+                
+                const fromMap = new Map(); 
+                const toMap = new Map();   
+                arrows.forEach(c => {
+                    if (!fromMap.has(c.fromId)) fromMap.set(c.fromId, []);
+                    fromMap.get(c.fromId).push(c);
+                    if (!toMap.has(c.toId)) toMap.set(c.toId, []);
+                    toMap.get(c.toId).push(c);
+                });
+
+                const fromJunctions = new Map();
+                const toJunctions = new Map();
+
+                fromMap.forEach((conns, fromId) => {
+                    const from = getShapeById(fromId);
+                    if (!from) return;
+                    const vTargets = conns.map(c => getShapeById(c.toId)).filter(t => t && t.y > from.y + from.h/2);
+                    if (vTargets.length > 0) {
+                        let minTargetTopY = Infinity;
+                        vTargets.forEach(t => { if (t.y < minTargetTopY) minTargetTopY = t.y; });
+                        const junctionY = Math.min(minTargetTopY - 40, from.y + from.h + 50);
+                        fromJunctions.set(fromId, junctionY);
+                        drawnLines.push({ type: 'v', x: from.x + from.w/2, y1: from.y + from.h, y2: junctionY });
+                    }
+                });
+
+                toMap.forEach((conns, toId) => {
+                    const to = getShapeById(toId);
+                    if (!to) return;
+                    const vSources = conns.map(c => getShapeById(c.fromId)).filter(f => f && f.y < to.y - to.h/2);
+                    if (vSources.length > 0) {
+                        let maxSourceBottomY = -Infinity;
+                        vSources.forEach(f => { if (f.y + f.h > maxSourceBottomY) maxSourceBottomY = f.y + f.h; });
+                        const junctionY = Math.max(maxSourceBottomY + 30, to.y - 50);
+                        toJunctions.set(toId, junctionY);
+                    }
+                });
+
+                fromMap.forEach((conns, fromId) => {
+                    const from = getShapeById(fromId);
+                    if (!from) return;
+                    const fromJY = fromJunctions.get(fromId);
+
+                    const targets = conns.map(c => getShapeById(c.toId)).filter(Boolean);
+                    const vTargets = targets.filter(t => t.y > from.y + from.h/2);
+                    const hTargets = targets.filter(t => Math.abs(t.y - from.y) < 20);
+
+                    if (vTargets.length > 0 && fromJY) {
+                        const fromCenterX = from.x + from.w/2;
+                        const fromBottomY = from.y + from.h;
+
+                        context.save();
+                        context.strokeStyle = colors.arrow; context.lineWidth = 2; context.lineJoin = 'miter';
+
+                        context.beginPath(); context.moveTo(fromCenterX, fromBottomY); context.lineTo(fromCenterX, fromJY); context.stroke();
+
+                        vTargets.sort((a,b) => a.x - b.x);
+                        vTargets.forEach((t, idx) => {
+                            const targetTopX = t.x + t.w/2;
+                            const targetTopY = t.y - 2;
+                            const toJY = toJunctions.get(t.id);
+                            
+                            const laneY = fromJY + (idx - vTargets.length/2) * 12;
+                            
+                            let intersections = [];
+                            drawnLines.forEach(seg => {
+                                if (seg.type === 'v') {
+                                    const minX = Math.min(fromCenterX, targetTopX);
+                                    const maxX = Math.max(fromCenterX, targetTopX);
+                                    if (seg.x > minX + 8 && seg.x < maxX - 8 && laneY > seg.y1 && laneY < seg.y2) {
+                                        intersections.push(seg.x);
+                                    }
+                                }
+                            });
+                            intersections = [...new Set(intersections)].sort((a,b) => a-b);
+
+                            let startX = fromCenterX;
+                            if (intersections.length > 0) {
+                                intersections.forEach(ix => {
+                                    context.beginPath(); context.moveTo(startX, laneY); context.lineTo(ix - 8, laneY); context.stroke();
+                                    context.beginPath(); context.moveTo(ix - 8, laneY); context.lineTo(ix - 8, laneY - 8); context.lineTo(ix + 8, laneY - 8); context.lineTo(ix + 8, laneY); context.stroke();
+                                    startX = ix + 8;
+                                });
+                                context.beginPath(); context.moveTo(startX, laneY); context.lineTo(targetTopX, laneY); context.stroke();
+                            } else {
+                                context.beginPath(); context.moveTo(fromCenterX, laneY); context.lineTo(targetTopX, laneY); context.stroke();
+                            }
+
+                            const finalY = (toJY && laneY < toJY) ? toJY : targetTopY;
+                            context.beginPath(); context.moveTo(targetTopX, laneY); context.lineTo(targetTopX, finalY); context.stroke();
+
+                            if (finalY === targetTopY) {
+                                const as = 8;
+                                context.beginPath();
+                                context.moveTo(targetTopX, targetTopY);
+                                context.lineTo(targetTopX - as/1.5, targetTopY - as);
+                                context.lineTo(targetTopX + as/1.5, targetTopY - as);
+                                context.closePath(); context.fillStyle = colors.arrow; context.fill();
+                            }
+
+                            drawnLines.push({ type: 'h', y: laneY, x1: fromCenterX, x2: targetTopX });
+                            if (finalY !== targetTopY) drawnLines.push({ type: 'v', x: targetTopX, y1: laneY, y2: finalY });
+                        });
+                        context.restore();
+                    }
+
+                    hTargets.forEach(t => {
+                        const fromRight = from.x + from.w;
+                        const fromY = from.y + from.h/2;
+                        const toLeft = t.x;
+                        const toY = t.y + t.h/2;
+                        
+                        if (fromRight < toLeft) {
+                            context.save();
+                            context.strokeStyle = colors.arrow; context.lineWidth = 2;
+                            context.beginPath(); context.moveTo(fromRight, fromY); context.lineTo(toLeft, toY); context.stroke();
+                            
+                            const as = 8;
+                            context.beginPath(); context.moveTo(toLeft, toY); context.lineTo(toLeft - as, toY - as/1.5); context.lineTo(toLeft - as, toY + as/1.5); context.closePath();
+                            context.fillStyle = colors.arrow; context.fill();
+                            context.restore();
+                        }
+                    });
+                });
+
+                toMap.forEach((conns, toId) => {
+                    const to = getShapeById(toId);
+                    if (!to) return;
+                    const toJY = toJunctions.get(toId);
+                    if (!toJY) return;
+
+                    const toCenterX = to.x + to.w/2;
+                    const targetTopY = to.y - 2;
+
+                    context.save();
+                    context.strokeStyle = colors.arrow; context.lineWidth = 2; context.lineJoin = 'miter';
+                    context.beginPath(); context.moveTo(toCenterX, toJY); context.lineTo(toCenterX, targetTopY); context.stroke();
+
+                    const as = 8;
+                    context.beginPath();
+                    context.moveTo(toCenterX, targetTopY);
+                    context.lineTo(toCenterX - as/1.5, targetTopY - as);
+                    context.lineTo(toCenterX + as/1.5, targetTopY - as);
+                    context.closePath(); context.fillStyle = colors.arrow; context.fill();
+                    context.restore();
+                });
+
+                // ================= 画形状 =================
+                shapes.forEach(shape => {
+                    context.save();
+                    const cx = shape.x + shape.w/2, cy = shape.y + shape.h/2;
+                    context.translate(cx, cy); context.rotate(shape.rotation); context.translate(-cx, -cy);
+                    
+                    context.beginPath();
+                    if (shape.type === 'rect') context.rect(shape.x, shape.y, shape.w, shape.h);
+                    else {
+                        context.moveTo(shape.x + shape.w/2, shape.y);
+                        context.lineTo(shape.x, shape.y + shape.h);
+                        context.lineTo(shape.x + shape.w, shape.y + shape.h);
+                        context.closePath();
+                    }
+                    
+                    context.fillStyle = colors.shapeFill; context.fill();
+                    context.strokeStyle = (selectedShapeId === shape.id && !isExport) ? colors.select : colors.shapeStroke;
+                    context.lineWidth = (selectedShapeId === shape.id && !isExport) ? 2.5 : 1.8; 
+                    context.stroke();
+
+                    context.font = 'bold 14px system-ui, sans-serif';
+                    context.fillStyle = colors.text; context.textAlign = 'center'; context.textBaseline = 'middle';
+                    context.save(); context.translate(cx, cy); context.rotate(shape.rotation);
+                    if (shape.label) context.fillText(shape.label, 0, shape.type === 'tri' ? 6 : 0);
+                    context.restore();
+
+                    if (selectedShapeId === shape.id && !isExport) {
+                        context.save(); context.translate(cx, cy); context.rotate(shape.rotation);
+                        context.strokeStyle = colors.select; context.lineWidth = 1.5; context.setLineDash([4,3]);
+                        context.strokeRect(-shape.w/2-6, -shape.h/2-6, shape.w+12, shape.h+12);
+                        context.setLineDash([]); context.restore();
+                    }
+                    context.restore();
+                });
+            }
+
+            function draw() { render(ctx, false); }
+
+            // ================= 智能排版 =================
+            function performLayout() {
+                if (shapes.length === 0) return;
+
+                const adj = new Map(); const inDegree = new Map(); const equalPairs = [];
+                shapes.forEach(s => { adj.set(s.id, []); inDegree.set(s.id, 0); });
+
+                connections.forEach(c => {
+                    if (c.type === 'arrow' && shapes.find(s=>s.id===c.fromId) && shapes.find(s=>s.id===c.toId)) {
+                        adj.get(c.fromId).push(c.toId);
+                        inDegree.set(c.toId, (inDegree.get(c.toId) || 0) + 1);
+                    } else if (c.type === 'equal') equalPairs.push([c.fromId, c.toId]);
+                });
+
+                const parent = new Map(); shapes.forEach(s => parent.set(s.id, s.id));
+                function find(x) { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; }
+                function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent.set(ra, rb); }
+                equalPairs.forEach(([a,b]) => union(a,b));
+
+                const groups = new Map();
+                shapes.forEach(s => {
+                    const r = find(s.id);
+                    if (!groups.has(r)) groups.set(r, []);
+                    groups.get(r).push(s.id);
+                });
+
+                const groupAdj = new Map(); const groupInDeg = new Map();
+                groups.forEach((_, root) => { groupAdj.set(root, []); groupInDeg.set(root, 0); });
+                connections.filter(c => c.type === 'arrow').forEach(c => {
+                    const gr = find(c.fromId), gt = find(c.toId);
+                    if (gr !== gt && groupAdj.has(gr)) {
+                        groupAdj.get(gr).push(gt);
+                        groupInDeg.set(gt, (groupInDeg.get(gt) || 0) + 1);
+                    }
+                });
+
+                const layer = new Map();
+                const queue = [];
+                groupInDeg.forEach((deg, root) => { if (deg === 0) { layer.set(root, 0); queue.push(root); } });
+                while (queue.length) {
+                    const cur = queue.shift();
+                    const curLayer = layer.get(cur) || 0;
+                    (groupAdj.get(cur) || []).forEach(next => {
+                        if (!layer.has(next) || layer.get(next) < curLayer + 1) layer.set(next, curLayer + 1);
+                        groupInDeg.set(next, groupInDeg.get(next) - 1);
+                        if (groupInDeg.get(next) === 0) queue.push(next);
+                    });
+                }
+                groups.forEach((_, root) => { if (!layer.has(root)) layer.set(root, 0); });
+
+                const layers = [];
+                const maxLayer = Math.max(...Array.from(layer.values()), 0);
+                for (let i = 0; i <= maxLayer; i++) layers.push([]);
+                layer.forEach((l, root) => layers[l].push(root));
+
+                for (let iter = 0; iter < 4; iter++) {
+                    for (let i = 1; i < layers.length; i++) {
+                        layers[i].sort((a, b) => {
+                            let weightA = 0, countA = 0;
+                            layers[i-1].forEach((p, idx) => { if (groupAdj.get(p)?.includes(a)) { weightA += idx; countA++; } });
+                            let weightB = 0, countB = 0;
+                            layers[i-1].forEach((p, idx) => { if (groupAdj.get(p)?.includes(b)) { weightB += idx; countB++; } });
+                            return (countA > 0 ? weightA / countA : 999) - (countB > 0 ? weightB / countB : 999);
+                        });
+                    }
+                }
+
+                const startY = 80; const layerSpacingY = 150; const itemSpacingX = 120; const intraGroupSpacing = 30; const nodeW = DEFAULT_W + 20;
+
+                layers.forEach((roots, li) => {
+                    const y = startY + li * layerSpacingY;
+                    let totalWidth = 0;
+                    roots.forEach(root => {
+                        const groupShapes = groups.get(root);
+                        totalWidth += (groupShapes.length - 1) * (DEFAULT_W + intraGroupSpacing) + nodeW;
+                    });
+                    totalWidth += (roots.length - 1) * itemSpacingX;
+                    let currentX = Math.max(40, (canvasWidth - totalWidth) / 2);
+                    
+                    roots.forEach(root => {
+                        const shapeIds = groups.get(root);
+                        shapeIds.forEach((sid, j) => {
+                            const shape = getShapeById(sid);
+                            if (shape) {
+                                shape.x = Math.round((currentX + j * (DEFAULT_W + intraGroupSpacing)) / 10) * 10;
+                                shape.y = Math.round(y / 10) * 10;
+                            }
+                        });
+                        currentX += (shapeIds.length - 1) * (DEFAULT_W + intraGroupSpacing) + nodeW + itemSpacingX;
+                    });
+                });
+                
+                updateCanvasSize();
+            }
+
+            function getShapeAtPoint(px, py) {
+                for (let i = shapes.length-1; i >= 0; i--) {
+                    const s = shapes[i];
+                    const cx = s.x + s.w/2, cy = s.y + s.h/2;
+                    const dx = px-cx, dy = py-cy;
+                    const rad = -s.rotation, cos = Math.cos(rad), sin = Math.sin(rad);
+                    const lx = cx + dx*cos - dy*sin, ly = cy + dx*sin + dy*cos;
+                    if (lx >= s.x && lx <= s.x+s.w && ly >= s.y && ly <= s.y+s.h) return s;
+                }
+                return null;
+            }
+
+            function getConnectionAtPoint(px, py) {
+                const th = 30;
+                for (let i = connections.length-1; i >= 0; i--) {
+                    const conn = connections[i];
+                    const from = getShapeById(conn.fromId), to = getShapeById(conn.toId);
+                    if (!from || !to) continue;
+                    const fc = { x: from.x+from.w/2, y: from.y+from.h };
+                    const tc = { x: to.x+to.w/2, y: to.y };
+                    
+                    const isVertical = Math.abs(fc.x - tc.x) < 20;
+                    let midX, junctionY;
+                    if (isVertical) {
+                        junctionY = Math.min(tc.y - 30, fc.y + 40);
+                        midX = fc.x;
+                    } else {
+                        junctionY = (fc.y + tc.y) / 2;
+                        midX = (fc.x + tc.x) / 2;
+                    }
+
+                    const distVert = Math.hypot(px - fc.x, py - (fc.y + junctionY)/2);
+                    const distHorz = Math.hypot(px - (fc.x + tc.x)/2, py - junctionY);
+                    const distToEnd = Math.hypot(px - tc.x, py - (tc.y + junctionY)/2);
+                    
+                    if (distVert < th || distHorz < th || distToEnd < th) return conn;
+                }
+                return null;
+            }
+
+            // ================= 文本解析 =================
+            function generateFromText() {
+                const text = bulkInput.value.trim();
+                if (!text) { setStatus('请输入文本'); return; }
+
+                const rawLines = text.split(/[\n,，;；]/);
+                const nodeMap = new Map(); const edges = []; const equalPairs = [];
+                const normalize = (str) => str.replace(/->|→|—|－/g, '-');
+
+                rawLines.forEach(line => {
+                    const parts = normalize(line).split(/[=\-]/);
+                    parts.forEach(p => {
+                        const label = p.trim();
+                        if (label && !nodeMap.has(label)) {
+                            const isTri = /H|灰坑|坑|[a-zA-Z]/.test(label);
+                            nodeMap.set(label, { id: generateId(), type: isTri ? 'tri' : 'rect', x: 0, y: 0, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: label });
+                        }
+                    });
+                });
+
+                rawLines.forEach(line => {
+                    const l = normalize(line).trim();
+                    if (!l) return;
+
+                    if (l.includes('-')) {
+                        const parts = l.split('-').map(s => s.trim()).filter(Boolean);
+                        for (let i = 0; i < parts.length - 1; i++) {
+                            if (nodeMap.has(parts[i]) && nodeMap.has(parts[i+1])) edges.push({ id: generateId(), fromId: nodeMap.get(parts[i]).id, toId: nodeMap.get(parts[i+1]).id, type: 'arrow' });
+                        }
+                    } 
+                    if (l.includes('=')) {
+                        const parts = l.split('=').map(s => s.trim()).filter(Boolean);
+                        for (let i = 0; i < parts.length - 1; i++) {
+                            if (nodeMap.has(parts[i]) && nodeMap.has(parts[i+1])) equalPairs.push({ id: generateId(), fromId: nodeMap.get(parts[i]).id, toId: nodeMap.get(parts[i+1]).id, type: 'equal' });
+                        }
+                    }
+                });
+
+                shapes = Array.from(nodeMap.values());
+                connections = [...edges, ...equalPairs];
+                selectedShapeId = null; syncInput();
+                performLayout(); draw();
+                setStatus(`已生成，共 ${shapes.length} 形状，${connections.length} 连线`);
+            }
+
+            // ================= 事件处理 =================
+            function handleCanvasClick(e) {
+                const rect = canvas.getBoundingClientRect();
+                const mx = (e.clientX - rect.left) * (canvas.width/rect.width);
+                const my = (e.clientY - rect.top) * (canvas.height/rect.height);
+
+                if (activeTool === 'deleteConn') {
+                    const conn = getConnectionAtPoint(mx, my);
+                    if (conn) {
+                        connections = connections.filter(c => c.id !== conn.id);
+                        setStatus('已删除连接');
+                        draw();
+                    } else setStatus('未点到连线，请再靠近一点试试');
+                    activeTool = 'select'; resetToolHighlight();
+                    return;
+                }
+
+                if (activeTool === 'rect' || activeTool === 'tri') {
+                    const shape = { id: generateId(), type: activeTool === 'rect' ? 'rect' : 'tri', x: Math.round((mx - DEFAULT_W/2) / 10) * 10, y: Math.round((my - DEFAULT_H/2) / 10) * 10, w: DEFAULT_W, h: DEFAULT_H, rotation: 0, label: '' };
+                    shapes.push(shape); selectedShapeId = shape.id; syncInput();
+                    setStatus(`已添加${activeTool === 'rect' ? '矩形' : '三角形'}`);
+                    activeTool = 'select'; resetToolHighlight(); 
+                    updateCanvasSize();
+                    return;
+                }
+
+                if (activeTool === 'arrow' || activeTool === 'equal') {
+                    const shape = getShapeAtPoint(mx, my);
+                    if (!shape) { if (pendingConnectFromId) { pendingConnectFromId = null; setStatus('已取消'); draw(); } return; }
+                    if (!pendingConnectFromId) {
+                        pendingConnectFromId = shape.id; selectedShapeId = shape.id; syncInput();
+                        setStatus('已选起点，请点击目标形状'); draw();
+                    } else {
+                        if (pendingConnectFromId === shape.id) { setStatus('不能连接同一个'); pendingConnectFromId = null; selectedShapeId = null; syncInput(); draw(); return; }
+                        connections.push({ id: generateId(), fromId: pendingConnectFromId, toId: shape.id, type: activeTool === 'arrow' ? 'arrow' : 'equal' });
+                        pendingConnectFromId = null; selectedShapeId = null; syncInput();
+                        setStatus(`已添加${activeTool === 'arrow' ? '箭头' : '等号'}`);
+                        activeTool = 'select'; resetToolHighlight(); draw();
+                    }
+                    return;
+                }
+
+                if (activeTool === 'select') {
+                    const shape = getShapeAtPoint(mx, my);
+                    selectedShapeId = shape ? shape.id : null;
+                    syncInput(); setStatus(shape ? `选中形状` : '未选中'); draw();
+                }
+            }
+
+            function handleMouseDown(e) {
+                if (activeTool !== 'select') return;
+                const rect = canvas.getBoundingClientRect();
+                const mx = (e.clientX - rect.left) * (canvas.width/rect.width);
+                const my = (e.clientY - rect.top) * (canvas.height/rect.height);
+                const shape = getShapeAtPoint(mx, my);
+                if (shape) {
+                    selectedShapeId = shape.id; syncInput();
+                    isDragging = true; dragOffsetX = mx - shape.x; dragOffsetY = my - shape.y; draw();
+                } else { selectedShapeId = null; syncInput(); isDragging = false; draw(); }
+            }
+            function handleMouseMove(e) {
+                if (!isDragging || !selectedShapeId) return;
+                const rect = canvas.getBoundingClientRect();
+                const mx = (e.clientX - rect.left) * (canvas.width/rect.width);
+                const my = (e.clientY - rect.top) * (canvas.height/rect.height);
+                const shape = getShapeById(selectedShapeId);
+                if (shape) {
+                    shape.x = Math.round((mx - dragOffsetX) / 10) * 10;
+                    shape.y = Math.round((my - dragOffsetY) / 10) * 10;
+                    updateCanvasSize();
+                }
+            }
+            function handleMouseUp() { if (isDragging) { isDragging = false; draw(); } }
+
+            function deleteSelectedShape() {
+                if (!selectedShapeId) { setStatus('请先选中形状'); return; }
+                shapes = shapes.filter(s => s.id !== selectedShapeId);
+                connections = connections.filter(c => c.fromId !== selectedShapeId && c.toId !== selectedShapeId);
+                selectedShapeId = null; syncInput(); updateCanvasSize(); setStatus('已删除形状及相关连接');
+            }
+
+            function handleKeyDown(e) {
+                if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedShapeId) { e.preventDefault(); deleteSelectedShape(); } }
+                if (e.key === 'Escape') { selectedShapeId = null; pendingConnectFromId = null; syncInput(); activeTool = 'select'; resetToolHighlight(); draw(); setStatus('已取消'); }
+            }
+
+            // ================= 导出功能 =================
+            function exportPNG() {
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = canvasWidth;
+                exportCanvas.height = canvasHeight;
+                const exportCtx = exportCanvas.getContext('2d');
+                render(exportCtx, true);
+                
+                const dataURL = exportCanvas.toDataURL('image/png');
+                const filename = `系络图_${new Date().getTime()}.png`;
+                
+                try {
+                    const byteString = atob(dataURL.split(',')[1]);
+                    const mimeString = dataURL.split(',')[0].split(':')[1].split(';')[0];
+                    const ab = new ArrayBuffer(byteString.length);
+                    const ia = new Uint8Array(ab);
+                    for (let i = 0; i < byteString.length; i++) {
+                        ia[i] = byteString.charCodeAt(i);
+                    }
+                    const blob = new Blob([ab], { type: mimeString });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = filename;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                    
+                    setStatus('下载已启动');
+                    document.getElementById('downloadFallback').style.display = 'none';
+                } catch (err) {
+                    const fallback = document.getElementById('downloadFallback');
+                    fallback.style.display = 'block';
+                    fallback.href = dataURL;
+                    fallback.download = filename;
+                    fallback.textContent = '⚠️ 自动下载被拦截，点击此处手动保存图片';
+                    setStatus('请点击备用链接手动保存');
+                }
+            }
+
+            // ================= 初始化 =================
+            window.addEventListener('load', () => {
+                updateCanvasSize();
+                canvas.addEventListener('click', handleCanvasClick);
+                canvas.addEventListener('mousedown', handleMouseDown);
+                canvas.addEventListener('mousemove', handleMouseMove);
+                window.addEventListener('mouseup', handleMouseUp);
+                window.addEventListener('keydown', handleKeyDown);
+
+                labelInput.addEventListener('input', (e) => {
+                    if (selectedShapeId) {
+                        const shape = getShapeById(selectedShapeId);
+                        if (shape) { shape.label = e.target.value; draw(); }
+                    }
+                });
+
+                document.getElementById('generateBtn').addEventListener('click', generateFromText);
+                document.getElementById('addRectBtn').addEventListener('click', () => { activeTool = 'rect'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('点击画布添加矩形'); draw(); });
+                document.getElementById('addTriBtn').addEventListener('click', () => { activeTool = 'tri'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('点击画布添加三角形'); draw(); });
+                document.getElementById('addArrowBtn').addEventListener('click', () => { activeTool = 'arrow'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('点击两个形状添加箭头'); draw(); });
+                document.getElementById('addEqualBtn').addEventListener('click', () => { activeTool = 'equal'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('点击两个形状添加等号'); draw(); });
+                document.getElementById('autoLayoutBtn').addEventListener('click', () => { performLayout(); setStatus('智能分层排版完成'); });
+                document.getElementById('deleteShapeBtn').addEventListener('click', deleteSelectedShape);
+                document.getElementById('deleteConnectionBtn').addEventListener('click', () => { activeTool = 'deleteConn'; resetToolHighlight(); pendingConnectFromId = null; selectedShapeId = null; syncInput(); setStatus('请点击要删除的连接线'); draw(); });
+                document.getElementById('exportBtn').addEventListener('click', exportPNG);
+                document.getElementById('clearCanvasBtn').addEventListener('click', () => { shapes = []; connections = []; selectedShapeId = null; syncInput(); updateCanvasSize(); setStatus('画布已清空'); });
+
+                activeTool = 'select'; resetToolHighlight();
+            });
+
+            window.addEventListener('resize', () => { updateCanvasSize(); });
+        })();
+    </script>
+</body>
+</html>
